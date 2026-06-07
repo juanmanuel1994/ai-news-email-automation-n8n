@@ -1,0 +1,122 @@
+{
+  "name": "AI News - Daily Email",
+  "nodes": [
+    {
+      "parameters": {
+        "url": "https://techcrunch.com/category/artificial-intelligence/feed/",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "4b27b5b4-41ff-4ec3-920e-544502f4666e",
+      "name": "RSS TechCrunch AI",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const xml = $input.first().json.data;\nconst itemBlocks = [];\nlet m;\nconst re = /<item>([\\s\\S]*?)<\\/item>/g;\nwhile ((m = re.exec(xml)) !== null && itemBlocks.length < 6) { itemBlocks.push(m[1]); }\nfunction extractTag(block, tag) {\n  const r = new RegExp('<' + tag + '[\\\\s\\\\S]*?>([\\\\s\\\\S]*?)<\\\\/' + tag + '>');\n  const x = block.match(r);\n  if (!x) return '';\n  return x[1].replace(/<!\\[CDATA\\[/g, '').replace(/\\]\\]>/g, '').replace(/<[^>]+>/g, '').replace(/&[a-z]+;/gi, ' ').trim();\n}\nconst noticias = itemBlocks.map(function(b) {\n  return { title: extractTag(b,'title'), link: extractTag(b,'link'), desc: extractTag(b,'description').substring(0,280) };\n}).filter(function(n){ return n.title; });\nconst fecha = new Date().toLocaleDateString('en-US',{weekday:'long',year:'numeric',month:'long',day:'numeric'});\nconst rows = noticias.map(function(n){\n  return '<div style=\"border-left:4px solid #6366f1;padding:14px 18px;margin-bottom:20px;background:#fafafa\"><a href=\"'+n.link+'\" style=\"font-size:15px;font-weight:700;color:#1e1b4b;text-decoration:none\">'+n.title+'</a><p style=\"color:#6b7280;font-size:13px;margin:8px 0\">'+n.desc+'...</p><a href=\"'+n.link+'\" style=\"font-size:12px;color:#6366f1\">Read more</a></div>';\n}).join('');\nconst html = '<!DOCTYPE html><html><head><meta charset=\"UTF-8\"></head><body style=\"font-family:Arial,sans-serif;max-width:640px;margin:0 auto\"><div style=\"background:linear-gradient(135deg,#4f46e5,#7c3aed);padding:32px;text-align:center\"><h1 style=\"color:#fff;margin:0\">AI News Update</h1><p style=\"color:#c7d2fe;margin:8px 0 0\">'+fecha+'</p></div><div style=\"padding:24px\">'+rows+'<p style=\"font-size:12px;color:#9ca3af;margin-top:20px\">Source: TechCrunch AI | Sent daily | n8n</p></div></body></html>';\nreturn [{ json: { html: html, subject: 'AI News Update - ' + fecha } }];"
+      },
+      "id": "67d1aa36-b89d-4987-b124-5ccd7d2d6b95",
+      "name": "Format Email HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        704,
+        304
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "={{ $vars.RECIPIENT_EMAIL }}",
+        "subject": "={{ $json.subject }}",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "f8eea7e0-3006-4241-9150-2f8d8d702b93",
+      "name": "Send via Gmail",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        960,
+        304
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "45 23 * * *"
+            }
+          ]
+        }
+      },
+      "id": "45e7384a-5e3e-4df1-9f44-870b90c173f3",
+      "name": "Every day at 11:45 PM",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        256,
+        304
+      ]
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "RSS TechCrunch AI": {
+      "main": [
+        [
+          {
+            "node": "Format Email HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Email HTML": {
+      "main": [
+        [
+          {
+            "node": "Send via Gmail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every day at 11:45 PM": {
+      "main": [
+        [
+          {
+            "node": "RSS TechCrunch AI",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "tags": []
+}
